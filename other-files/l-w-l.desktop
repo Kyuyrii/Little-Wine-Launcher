@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Little Wine Launcher
+Exec=l-w-l
+Icon=wine
+Categories=Utility;
+Keywords=wine;launcher;
+Type=Application
+MimeType=application/x-ms-dos-executable;application/x-msi
+StartupNotify=false
+Terminal=false

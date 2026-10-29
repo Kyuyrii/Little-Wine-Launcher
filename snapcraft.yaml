@@ -1,0 +1,83 @@
+name: l-w-l
+base: core26
+version: testing
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+summary: A simple launcher for Wine
+description: |
+ A script to simplify the creation of shortcuts; these shortcuts invoke the Little Wine Launcher to execute Wine.
+grade: stable
+confinement: strict
+compression: lzo
+icon: icon.svg
+
+apps:
+  l-w-l:
+    command-chain: [define-variables]
+    command: l-w-l
+    desktop: l-w-l.desktop
+    extensions: [gnome]
+    plugs: &plugs
+      - audio-playback
+      - network
+      - network-bind
+      - screen-inhibit-control
+      - home
+      - removable-media
+      - mount-observe
+      - joystick
+      - bluez
+      - udisks2
+      - system-observe
+      - hardware-observe
+      - upower-observe
+  wine-run:
+    command-chain: [define-variables]
+    command: wine-run
+    extensions: [gnome]
+    plugs: *plugs
+
+plugs:
+  shared-memory:
+    private: true
+  winehq-stable:
+    content: winehq-stable
+    interface: content
+    target: $SNAP/winehq-stable
+    default-provider: winehq-stable
+
+layout:
+  /usr/lib/x86_64-linux-gnu/alsa-lib:
+    symlink: $SNAP/winehq/usr/lib/x86_64-linux-gnu/alsa-lib
+
+parts:
+  little-wine-launcher:
+    plugin: dump
+    source: https://github.com/Kyuyrii/Little-Wine-Launcher.git
+    prime: [l-w-l]
+
+  dependencies:
+    after: [little-wine-launcher]
+    plugin: nil
+    stage-packages: [zenity]
+    prime: [usr/bin/zenity]
+
+  icoutils:
+    after: [dependencies]
+    plugin: nil
+    stage-packages: [icoutils]
+
+  winetricks:
+    after: [icoutils]
+    plugin: make
+    source: https://github.com/Winetricks/winetricks.git
+    source-tag: 20260125
+    make-parameters:
+      - PREFIX=/usr
+
+  other-files:
+    after: [icoutils]
+    plugin: dump
+    source: ./other-files
