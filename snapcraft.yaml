@@ -50,7 +50,7 @@ plugs:
 
 layout:
   /usr/lib/x86_64-linux-gnu/alsa-lib:
-    symlink: $SNAP/winehq/usr/lib/x86_64-linux-gnu/alsa-lib
+    symlink: $SNAP/winehq-stable/usr/lib/x86_64-linux-gnu/alsa-lib
 
 parts:
   little-wine-launcher:
