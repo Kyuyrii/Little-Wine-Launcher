@@ -1,0 +1,464 @@
+#!/bin/bash
+# l-w-l - Little Wine Launcher
+
+# Configuration
+ICON_MSI_TEMPLATE=""
+APP_TITLE="Little Wine Launcher"
+
+# Asks for a shortcut display name. Empty output means cancelled.
+dlg_entry() {
+    local title="$1" text="$2" default="$3"
+    zenity --entry --title="$title" --text="$text" \
+           --entry-text="$default" 2>/dev/null
+}
+
+# Asks for a folder to use as a Wine prefix. Empty output means cancelled.
+dlg_select_dir() {
+    local title="$1"
+    zenity --file-selection --directory --title="$title" 2>/dev/null
+}
+
+# Asks for an icon file. Empty output means cancelled.
+dlg_select_icon() {
+    local title="$1"
+    zenity --file-selection --title="$title" \
+           --file-filter="Images | *.jpg *.jpeg *.png" \
+           --file-filter="All files | *" 2>/dev/null
+}
+
+# Asks to pick one entry from a list. Prints the chosen value.
+# Empty output means cancelled.
+dlg_select() {
+    local title="$1" text="$2" height="$3"
+    shift 3
+
+    local args=(--list --title="$title" --text="$text"
+                --height="$height" --width=420
+                --column="Item" --column="__val"
+                --hide-column=2 --print-column=2 --hide-header)
+    local entry display value
+    for entry in "$@"; do
+        IFS='|' read -r display value <<< "$entry"
+        args+=("$display" "$value")
+    done
+    zenity "${args[@]}" 2>/dev/null
+}
+
+# Reports a failure.
+dlg_error() {
+    local title="$1" text="$2"
+    zenity --error --title="$title" --text="$text" 2>/dev/null
+}
+
+# Reports a neutral message.
+dlg_info() {
+    local title="$1" text="$2"
+    zenity --info --title="$title" --text="$text" 2>/dev/null
+}
+
+# Language detection
+LANG_CODE="${LC_ALL:-${LANG:-en}}"
+LANG_CODE="${LANG_CODE%%.*}"
+LANG_CODE="${LANG_CODE%%@*}"
+LANG_CODE="${LANG_CODE:0:2}"
+case "$LANG_CODE" in
+    pt|en|es) ;;
+    *) LANG_CODE="en" ;;
+esac
+
+# Returns the localized string for a given key.
+# Args: key
+msg() {
+    local k="$1"
+    case "${LANG_CODE}_${k}" in
+        # English
+        en_prefix_title)        echo "Select Wine Prefix" ;;
+        en_prefix_text)         echo "The selected file does not appear to be inside a Wine prefix.\nPlease select a folder to use as the Wine prefix." ;;
+        en_name_title)          echo "Shortcut Name" ;;
+        en_name_text)           echo "Choose a name for the shortcut" ;;
+        en_select_sc)           echo "Select Shortcut" ;;
+        en_select_sc_text)      echo "Choose a shortcut to manage:" ;;
+        en_no_shortcuts)        echo "No shortcuts found on the Desktop." ;;
+        en_actions_text)        echo "Prefix: %s" ;;
+        en_act_rename)          echo "Rename" ;;
+        en_act_change_icon)     echo "Change icon" ;;
+        en_act_change_prefix)   echo "Change prefix" ;;
+        en_act_open)            echo "Open prefix folder" ;;
+        en_act_winetricks)      echo "Run Winetricks" ;;
+        en_act_winecfg)         echo "Run winecfg" ;;
+        en_act_wine_control)    echo "Run wine control" ;;
+        en_act_wine_taskmgr)    echo "Run wine taskmgr" ;;
+        en_no_prefix)           echo "This shortcut has no WINEPREFIX defined in its Exec line." ;;
+        en_tool_missing)        echo "Command not found: " ;;
+        en_rename_title)        echo "Rename Shortcut" ;;
+        en_rename_text)         echo "New display name:" ;;
+        en_icon_title)          echo "Select Icon File" ;;
+        en_invalid_file)        echo "File not found or invalid extension (only .exe and .msi are supported)." ;;
+
+        # Portuguese
+        pt_prefix_title)        echo "Selecionar Wine Prefix" ;;
+        pt_prefix_text)         echo "O arquivo selecionado não parece estar dentro de um prefixo Wine.\nPor favor, escolha uma pasta para ser o prefixo Wine." ;;
+        pt_name_title)          echo "Nome do Atalho" ;;
+        pt_name_text)           echo "Escolha um nome para o atalho" ;;
+        pt_select_sc)           echo "Selecionar Atalho" ;;
+        pt_select_sc_text)      echo "Escolha um atalho para gerenciar:" ;;
+        pt_no_shortcuts)        echo "Nenhum atalho encontrado na Área de Trabalho." ;;
+        pt_actions_text)        echo "Prefixo: %s" ;;
+        pt_act_rename)          echo "Alterar nome" ;;
+        pt_act_change_icon)     echo "Alterar ícone" ;;
+        pt_act_change_prefix)   echo "Alterar prefixo" ;;
+        pt_act_open)            echo "Abrir pasta do prefixo" ;;
+        pt_act_winetricks)      echo "Executar Winetricks" ;;
+        pt_act_winecfg)         echo "Executar winecfg" ;;
+        pt_act_wine_control)    echo "Executar wine control" ;;
+        pt_act_wine_taskmgr)    echo "Executar wine taskmgr" ;;
+        pt_no_prefix)           echo "Este atalho não tem WINEPREFIX definido na linha Exec." ;;
+        pt_tool_missing)        echo "Comando não encontrado: " ;;
+        pt_rename_title)        echo "Renomear Atalho" ;;
+        pt_rename_text)         echo "Novo nome de exibição:" ;;
+        pt_icon_title)          echo "Selecionar Arquivo de Ícone" ;;
+        pt_invalid_file)        echo "Arquivo não encontrado ou extensão inválida (apenas .exe e .msi são suportados)." ;;
+
+        # Spanish
+        es_prefix_title)        echo "Seleccionar Wine Prefix" ;;
+        es_prefix_text)         echo "El archivo seleccionado no parece estar dentro de un prefijo Wine.\nPor favor, elija una carpeta para ser el prefijo Wine." ;;
+        es_name_title)          echo "Nombre del Acceso" ;;
+        es_name_text)           echo "Elija un nombre para el acceso" ;;
+        es_select_sc)           echo "Seleccionar Acceso" ;;
+        es_select_sc_text)      echo "Elija un acceso para gestionar:" ;;
+        es_no_shortcuts)        echo "No se encontraron accesos en el Escritorio." ;;
+        es_actions_text)        echo "Prefijo: %s" ;;
+        es_act_rename)          echo "Cambiar nombre" ;;
+        es_act_change_icon)     echo "Cambiar icono" ;;
+        es_act_change_prefix)   echo "Cambiar prefijo" ;;
+        es_act_open)            echo "Abrir carpeta del prefijo" ;;
+        es_act_winetricks)      echo "Ejecutar Winetricks" ;;
+        es_act_winecfg)         echo "Ejecutar winecfg" ;;
+        es_act_wine_control)    echo "Ejecutar wine control" ;;
+        es_act_wine_taskmgr)    echo "Ejecutar wine taskmgr" ;;
+        es_no_prefix)           echo "Este acceso no tiene WINEPREFIX definido en la línea Exec." ;;
+        es_tool_missing)        echo "Comando no encontrado: " ;;
+        es_rename_title)        echo "Renombrar Acceso" ;;
+        es_rename_text)         echo "Nuevo nombre de visualización:" ;;
+        es_icon_title)          echo "Seleccionar Archivo de Icono" ;;
+        es_invalid_file)        echo "Archivo no encontrado o extensión inválida (solo .exe y .msi son soportados)." ;;
+    esac
+}
+
+# Helper functions
+
+# Prints the user's Desktop directory, honoring XDG user-dirs if present.
+get_desktop_dir() {
+    local desktop="$HOME/Desktop"
+    local config="$HOME/.config/user-dirs.dirs"
+    if [ -f "$config" ]; then
+        local xdg
+        xdg=$(grep "^XDG_DESKTOP_DIR=" "$config" | cut -d'=' -f2- | tr -d '"')
+        [ -n "$xdg" ] && desktop="${xdg/#\$HOME/$HOME}"
+    fi
+    echo "$desktop"
+}
+
+# Prints the largest --width value found in an ICO file listing.
+# Args: ico_file
+get_largest_icon_size() {
+    local ico_file="$1" max_size=0 size
+    while IFS= read -r line; do
+        if [[ $line =~ --width=([0-9]+) ]]; then
+            size="${BASH_REMATCH[1]}"
+            [ "$size" -gt "$max_size" ] && max_size=$size
+        fi
+    done < <(icotool -l "$ico_file" 2>/dev/null)
+    echo "$max_size"
+}
+
+# Extracts the largest icon from an .exe and writes it as a PNG.
+# Args: exe_path, output_png
+# Returns 0 on success, non-zero otherwise.
+extract_exe_icon() {
+    local exe="$1" out_png="$2"
+    local cache
+    cache=$(mktemp -d)
+    (
+        cd "$cache" || exit 1
+        wrestool -x -t 14 "$exe" > temp.ico 2>/dev/null || exit 1
+        local sz
+        sz=$(get_largest_icon_size "temp.ico")
+        [ -z "$sz" ] || [ "$sz" -le 0 ] && exit 1
+        icotool -x -w "$sz" -h "$sz" "temp.ico" >/dev/null 2>&1 || exit 1
+        local png
+        png=$(find . -maxdepth 1 -name "*.png" | head -1)
+        [ -z "$png" ] && exit 1
+        cp "$png" "$out_png"
+    )
+    local rc=$?
+    rm -rf "$cache"
+    return $rc
+}
+
+# Prints the WINEPREFIX value from the Exec= line of a .desktop file.
+# Args: desktop_file
+# Prints nothing if no WINEPREFIX is present.
+get_wineprefix_from_desktop() {
+    local file="$1"
+    local exec_line
+    exec_line=$(grep -m1 '^Exec=' "$file" 2>/dev/null)
+    if [[ "$exec_line" =~ WINEPREFIX=\"([^\"]+)\" ]]; then
+        echo "${BASH_REMATCH[1]}"
+    fi
+}
+
+# Prints the Name= value of a .desktop file.
+# Args: desktop_file
+get_name_from_desktop() {
+    grep -m1 '^Name=' "$1" 2>/dev/null | cut -d'=' -f2-
+}
+
+# Mode 1 - create shortcut
+
+# Creates a .desktop shortcut for the given .exe or .msi file.
+# Args: exec_file
+create_shortcut() {
+    local exec_file="$1"
+
+    if [ ! -f "$exec_file" ]; then
+        dlg_error "$APP_TITLE" "$(msg invalid_file)"
+        exit 1
+    fi
+
+    local base ext lc_ext
+    base=$(basename "$exec_file")
+    ext="${base##*.}"
+    lc_ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+    if [ "$lc_ext" != "exe" ] && [ "$lc_ext" != "msi" ]; then
+        dlg_error "$APP_TITLE" "$(msg invalid_file)"
+        exit 1
+    fi
+
+    # Derive application name from basename and sanitize it for filenames
+    local app_name="${base%.*}"
+    local safe_name
+    safe_name=$(echo "$app_name" | tr ' ' '_' | tr '[:upper:]' '[:lower:]' \
+                | sed 's/[^a-zA-Z0-9_-]/_/g')
+
+    # Resolve paths
+    local exec_dir icon_path desktop_dir dotfile
+    exec_dir=$(dirname "$exec_file")
+    icon_path="$exec_dir/$safe_name.png"
+    desktop_dir=$(get_desktop_dir)
+    dotfile="$desktop_dir/l-w-l-$safe_name.desktop"
+
+    # Extract or assign icon
+    if [ "$lc_ext" = "exe" ]; then
+        extract_exe_icon "$exec_file" "$icon_path" || true
+        [ -f "$icon_path" ] || icon_path="$ICON_MSI_TEMPLATE"
+    else
+        icon_path="$ICON_MSI_TEMPLATE"
+    fi
+    [ -z "$icon_path" ] && icon_path="wine"
+
+    # Locate the Wine prefix by walking up the directory tree
+    local found_prefix="" candidate
+    candidate=$(dirname "$exec_file")
+    while [ "$candidate" != "/" ] && [ "$candidate" != "." ]; do
+        if [ -d "$candidate/drive_c" ]; then
+            found_prefix="$candidate"
+            break
+        fi
+        candidate=$(dirname "$candidate")
+    done
+
+    # If not found, explain why the folder selector is being shown
+    if [ -z "$found_prefix" ]; then
+        dlg_info "$APP_TITLE" "$(msg prefix_text)"
+        found_prefix=$(dlg_select_dir "$(msg prefix_title)")
+        [ -z "$found_prefix" ] && exit 0
+    fi
+
+    # Ask for the shortcut name
+    local new_name
+    new_name=$(dlg_entry "$(msg name_title)" "$(msg name_text)" "$app_name")
+    if [ -z "$new_name" ]; then
+        exit 0
+    fi
+
+    # Build the Exec line
+    local exec_line
+    if [ -n "$found_prefix" ]; then
+        exec_line="env WINEPREFIX=\"$found_prefix\" snap run l-w-l.wine-run \"$exec_file\""
+    else
+        exec_line="snap run l-w-l.wine-run \"$exec_file\""
+    fi
+
+    local exec_basename
+    exec_basename=$(basename "$exec_file")
+
+    # Write the .desktop file
+    cat > "$dotfile" << EOF
+[Desktop Entry]
+Name=$new_name
+Exec=$exec_line
+Icon=$icon_path
+Path=$exec_dir
+StartupWMClass=$exec_basename
+Categories=Utility;
+Keywords=wine;
+Type=Application
+StartupNotify=false
+Terminal=false
+EOF
+    chmod +x "$dotfile"
+}
+
+# Mode 2 - manage shortcuts
+
+# Runs a wine tool against a prefix in the background, if available.
+# Args: prefix, command_and_args...
+run_wine_tool() {
+    local prefix="$1"; shift
+    local base="$1"
+    if ! command -v "$base" >/dev/null 2>&1; then
+        dlg_error "$APP_TITLE" "$(msg tool_missing)${base}"
+        return 1
+    fi
+    env WINEPREFIX="$prefix" "$@" >/dev/null 2>&1 &
+}
+
+# Shows the action menu for a single shortcut in a loop.
+# Args: desktop_file
+# The menu title is the shortcut's display name; the body shows the current prefix.
+# Cancelling returns to the shortcut list.
+manage_one_shortcut() {
+    local file="$1"
+    local prefix name
+    while true; do
+        prefix=$(get_wineprefix_from_desktop "$file")
+        name=$(get_name_from_desktop "$file")
+
+        local choice
+        choice=$(dlg_select "$name" "$(printf "$(msg actions_text)" "$prefix")" 500 \
+            "$(msg act_rename)|rename" \
+            "$(msg act_change_icon)|change_icon" \
+            "$(msg act_change_prefix)|change_prefix" \
+            "$(msg act_open)|open_prefix" \
+            "$(msg act_winetricks)|winetricks" \
+            "$(msg act_winecfg)|winecfg" \
+            "$(msg act_wine_control)|wine_control" \
+            "$(msg act_wine_taskmgr)|wine_taskmgr")
+
+        case "$choice" in
+            rename)
+                local new_name
+                new_name=$(dlg_entry "$(msg rename_title)" "$(msg rename_text)" "$name")
+                if [ -n "$new_name" ]; then
+                    local tmp="${file}.tmp"
+                    awk -v n="$new_name" '/^Name=/{print "Name=" n; next} {print}' \
+                        "$file" > "$tmp" && mv "$tmp" "$file"
+                fi
+                ;;
+            change_icon)
+                local new_icon
+                new_icon=$(dlg_select_icon "$(msg icon_title)")
+                if [ -n "$new_icon" ]; then
+                    local tmp="${file}.tmp"
+                    awk -v i="$new_icon" '/^Icon=/{print "Icon=" i; next} {print}' \
+                        "$file" > "$tmp" && mv "$tmp" "$file"
+                fi
+                ;;
+            change_prefix)
+                local new_prefix
+                new_prefix=$(dlg_select_dir "$(msg prefix_title)")
+                if [ -n "$new_prefix" ]; then
+                    local tmp="${file}.tmp"
+                    awk -v p="$new_prefix" '
+                        /^Exec=/ && !done {
+                            done = 1
+                            if ($0 ~ /WINEPREFIX="[^"]*"/) {
+                                match($0, /WINEPREFIX="[^"]*"/)
+                                print substr($0, 1, RSTART-1) "WINEPREFIX=\"" p "\"" substr($0, RSTART+RLENGTH)
+                            } else {
+                                print "Exec=env WINEPREFIX=\"" p "\" " substr($0, 6)
+                            }
+                            next
+                        }
+                        {print}
+                    ' "$file" > "$tmp" && mv "$tmp" "$file"
+                fi
+                ;;
+            open_prefix)
+                if [ -z "$prefix" ]; then
+                    dlg_error "$APP_TITLE" "$(msg no_prefix)"
+                else
+                    xdg-open "$prefix" >/dev/null 2>&1 &
+                fi
+                ;;
+            winetricks)
+                if [ -z "$prefix" ]; then
+                    dlg_error "$APP_TITLE" "$(msg no_prefix)"
+                else
+                    run_wine_tool "$prefix" winetricks
+                fi
+                ;;
+            winecfg)
+                if [ -z "$prefix" ]; then
+                    dlg_error "$APP_TITLE" "$(msg no_prefix)"
+                else
+                    run_wine_tool "$prefix" wine winecfg
+                fi
+                ;;
+            wine_control)
+                if [ -z "$prefix" ]; then
+                    dlg_error "$APP_TITLE" "$(msg no_prefix)"
+                else
+                    run_wine_tool "$prefix" wine control
+                fi
+                ;;
+            wine_taskmgr)
+                if [ -z "$prefix" ]; then
+                    dlg_error "$APP_TITLE" "$(msg no_prefix)"
+                else
+                    run_wine_tool "$prefix" wine taskmgr
+                fi
+                ;;
+            "") echo "back"; return ;;
+        esac
+    done
+}
+
+# Lists existing l-w-l shortcuts and dispatches to the action menu.
+manage_shortcuts() {
+    local desktop_dir
+    desktop_dir=$(get_desktop_dir)
+
+    while true; do
+        local -a entries=()
+        local f name
+        for f in "$desktop_dir"/l-w-l-*.desktop; do
+            [ -f "$f" ] || continue
+            name=$(get_name_from_desktop "$f")
+            entries+=("$name|$f")
+        done
+
+        if [ ${#entries[@]} -eq 0 ]; then
+            dlg_info "$APP_TITLE" "$(msg no_shortcuts)"
+            exit 0
+        fi
+
+        local selected
+        selected=$(dlg_select "$(msg select_sc)" "$(msg select_sc_text)" 480 \
+            "${entries[@]}")
+        [ -z "$selected" ] && exit 0
+
+        local result
+        result=$(manage_one_shortcut "$selected")
+        [ "$result" = "exit" ] && exit 0
+    done
+}
+
+# Entry point
+
+if [ -n "$1" ]; then
+    create_shortcut "$1"
+else
+    manage_shortcuts
+fi
