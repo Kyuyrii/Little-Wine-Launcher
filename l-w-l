@@ -84,7 +84,6 @@ msg() {
         en_act_change_icon)     echo "Change icon" ;;
         en_act_change_prefix)   echo "Change prefix" ;;
         en_act_open)            echo "Open prefix folder" ;;
-        en_act_winetricks)      echo "Run Winetricks" ;;
         en_act_winecfg)         echo "Run winecfg" ;;
         en_act_wine_control)    echo "Run wine control" ;;
         en_act_wine_taskmgr)    echo "Run wine taskmgr" ;;
@@ -108,7 +107,6 @@ msg() {
         pt_act_change_icon)     echo "Alterar ícone" ;;
         pt_act_change_prefix)   echo "Alterar prefixo" ;;
         pt_act_open)            echo "Abrir pasta do prefixo" ;;
-        pt_act_winetricks)      echo "Executar Winetricks" ;;
         pt_act_winecfg)         echo "Executar winecfg" ;;
         pt_act_wine_control)    echo "Executar wine control" ;;
         pt_act_wine_taskmgr)    echo "Executar wine taskmgr" ;;
@@ -132,7 +130,6 @@ msg() {
         es_act_change_icon)     echo "Cambiar icono" ;;
         es_act_change_prefix)   echo "Cambiar prefijo" ;;
         es_act_open)            echo "Abrir carpeta del prefijo" ;;
-        es_act_winetricks)      echo "Ejecutar Winetricks" ;;
         es_act_winecfg)         echo "Ejecutar winecfg" ;;
         es_act_wine_control)    echo "Ejecutar wine control" ;;
         es_act_wine_taskmgr)    echo "Ejecutar wine taskmgr" ;;
@@ -336,12 +333,11 @@ manage_one_shortcut() {
         name=$(get_name_from_desktop "$file")
 
         local choice
-        choice=$(dlg_select "$name" "$(printf "$(msg actions_text)" "$prefix")" 500 \
+        choice=$(dlg_select "$name" "$(printf "$(msg actions_text)" "$prefix")" 450 \
             "$(msg act_rename)|rename" \
             "$(msg act_change_icon)|change_icon" \
             "$(msg act_change_prefix)|change_prefix" \
             "$(msg act_open)|open_prefix" \
-            "$(msg act_winetricks)|winetricks" \
             "$(msg act_winecfg)|winecfg" \
             "$(msg act_wine_control)|wine_control" \
             "$(msg act_wine_taskmgr)|wine_taskmgr")
@@ -390,13 +386,6 @@ manage_one_shortcut() {
                     dlg_error "$APP_TITLE" "$(msg no_prefix)"
                 else
                     xdg-open "$prefix" >/dev/null 2>&1 &
-                fi
-                ;;
-            winetricks)
-                if [ -z "$prefix" ]; then
-                    dlg_error "$APP_TITLE" "$(msg no_prefix)"
-                else
-                    run_wine_tool "$prefix" winetricks
                 fi
                 ;;
             winecfg)

@@ -69,14 +69,6 @@ parts:
     plugin: nil
     stage-packages: [icoutils]
 
-  winetricks:
-    after: [icoutils]
-    plugin: make
-    source: https://github.com/Winetricks/winetricks.git
-    source-tag: 20260125
-    make-parameters:
-      - PREFIX=/usr
-
   other-files:
     after: [icoutils]
     plugin: dump
