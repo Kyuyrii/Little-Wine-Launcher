@@ -2,7 +2,7 @@
 # l-w-l - Little Wine Launcher
 
 # Configuration
-ICON_MSI_TEMPLATE=""
+ICON_MSI_TEMPLATE="/snap/l-w-l/current/meta/gui/icon.svg"
 APP_TITLE="Little Wine Launcher"
 
 # Asks for a shortcut display name. Empty output means cancelled.
