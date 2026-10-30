@@ -19,6 +19,8 @@ apps:
     command: l-w-l
     desktop: l-w-l.desktop
     extensions: [gnome]
+    environment: &environment
+      HOME: $SNAP_USER_COMMON
     plugs: &plugs
       - audio-playback
       - network
@@ -37,6 +39,7 @@ apps:
     command-chain: [define-variables]
     command: wine-run
     extensions: [gnome]
+    environment: *environment
     plugs: *plugs
 
 plugs:
