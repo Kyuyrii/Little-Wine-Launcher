@@ -1,11 +1,11 @@
 #!/bin/bash
 
-export PATH="$SNAP/winehq-stable/usr/bin:$PATH"
+export PATH="$PATH$SNAP/winehq-stable/usr/bin"
 
-export LD_LIBRARY_PATH="$SNAP/winehq-stable/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH$SNAP/winehq-stable/usr/lib/x86_64-linux-gnu"
 
-export GST_PLUGIN_SYSTEM_PATH="$SNAP/winehq-stable/usr/lib/x86_64-linux-gnu/gstreamer-1.0:$GST_PLUGIN_SYSTEM_PATH"
+export GST_PLUGIN_SYSTEM_PATH="$GST_PLUGIN_SYSTEM_PATH$SNAP/winehq-stable/usr/lib/x86_64-linux-gnu/gstreamer-1.0"
 
-export XDG_DATA_DIRS="$SNAP/winehq-stable/usr/share:$XDG_DATA_DIRS"
+export XDG_DATA_DIRS="$XDG_DATA_DIRS$SNAP/winehq-stable/usr/share"
 
 exec "$@"
