@@ -25,14 +25,22 @@ elif os.environ.get("APPIMAGE"):
 else:
     __package_type__ = ""
 
-__version__ = "0.2" + __package_type__
+__version__ = "0.3" + __package_type__
 __creator__ = "<a href='https://github.com/Kyuyrii'>Kyuyrii</a>"
+
+APP_ID = "io.github.kyuyrii.little-wine-launcher"
 
 # ---------- Home / data / config directories ----------
 if "LWL_HOME_DIR" in os.environ:
     lwl_home_dir = Path(os.environ["LWL_HOME_DIR"])
 elif os.environ.get("SNAP"):
-    lwl_home_dir = Path(os.environ["SNAP_USER_COMMON"])
+    home_connected = subprocess.run(["snapctl", "is-connected", "home"]).returncode == 0
+
+    if home_connected:
+        lwl_home_dir = Path(os.environ["SNAP_REAL_HOME"])
+    else:
+        lwl_home_dir = Path(os.environ["SNAP_USER_COMMON"])
+
 else:
     lwl_home_dir = Path.home()
 
@@ -51,7 +59,10 @@ else:
     lwl_bubble_dir = lwl_dir / "bubble"
     lwl_settings_file = lwl_config_dir / "lwl-settings.toml"
 
-APP_ID = "io.github.kyuyrii.little-wine-launcher"
+if os.environ.get("container") == "flatpak":
+    lwl_dot_wine = Path.home() / ".var" / "app" / APP_ID / ".wine"
+else:
+    lwl_dot_wine = Path.home() / ".wine"
 
 LWL_LOCALES = [
     "ar_SA.UTF-8", "bg_BG.UTF-8", "cs_CZ.UTF-8", "da_DK.UTF-8",
@@ -477,7 +488,7 @@ def get_wine_desktop_command() -> str:
     if os.environ.get("SNAP"):
         return "snap run winehq-stable"
     if os.environ.get("container") == "flatpak":
-        return "flatpak run org.winehq.Wine"
+        return "flatpak run --command=wine io.github.kyuyrii.little-wine-launcher"
     return "wine"
 
 
@@ -491,7 +502,7 @@ def resolve_bubble_prefix(data: dict) -> Path:
     prefix = (data.get("prefix_path") or "").strip()
     if prefix:
         return Path(prefix)
-    return Path.home() / ".wine"
+    return lwl_dot_wine
 
 
 def build_env_for_bubble(data: dict) -> dict:
@@ -508,7 +519,7 @@ def build_env_for_bubble(data: dict) -> dict:
     return env
 
 
-def launch_with_wine(exec_path: str, data: dict) -> tuple[bool, str | None]:
+def launch_with_wine(exec_path: str, data: dict, notify=None) -> tuple[bool, str | None]:
     """Launches a bubble's executable with wine. Returns (ok, error)."""
     wine_cmd = get_wine_local_command()
     if not shutil.which(wine_cmd):
@@ -530,6 +541,8 @@ def launch_with_wine(exec_path: str, data: dict) -> tuple[bool, str | None]:
             args, env=env, cwd=cwd,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
+        if notify is not None:
+            notify(tr("APP_NAME"), tr("RUNNING_WINE"))
         return True, None
     except Exception as e:
         return False, str(e)
@@ -795,6 +808,22 @@ class AddBubbleDialog(Gtk.Window):
             title=tr("FIELD_EXEC"), transient_for=self,
             action=Gtk.FileChooserAction.OPEN,
         )
+        # Start in the prefix folder if set, otherwise in the default Wine prefix
+        start_dir = None
+        prefix_text = self.prefix_entry.get_text().strip()
+        if prefix_text:
+            p = Path(prefix_text)
+            drive_c = p / "drive_c"
+            if drive_c.is_dir():
+                start_dir = drive_c
+            elif p.is_dir():
+                start_dir = p
+        else:
+            default_drive_c = lwl_dot_wine / "drive_c"
+            if default_drive_c.is_dir():
+                start_dir = default_drive_c
+        if start_dir is not None:
+            dialog.set_current_folder(str(start_dir))
         f = Gtk.FileFilter()
         f.set_name(tr("FILTER_EXECUTABLES"))
         f.add_pattern("*.exe")
@@ -1064,69 +1093,19 @@ class RemoveBubbleDialog(Gtk.Window):
 
 
 # ---------- About dialog ----------
-class AboutDialog(Gtk.Window):
-    """About dialog."""
-
-    def __init__(self, app: "App", parent: Gtk.Window):
-        self.app = app
-        super().__init__(title=tr("ABOUT"))
-        self.set_transient_for(parent)
-        self.set_modal(True)
-        self.set_resizable(False)
-
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        content.set_margin_top(24)
-        content.set_margin_bottom(24)
-        content.set_margin_start(32)
-        content.set_margin_end(32)
-        content.set_halign(Gtk.Align.CENTER)
-        self.add(content)
-
-        logo_pixbuf = None
-        snap_dir = os.environ.get("SNAP")
-        if snap_dir:
-            logo_path = Path(snap_dir) / "usr" / "share" / "icons" / "hicolor" / "scalable" / "apps" / f"{APP_ID}.svg"
-            if logo_path.is_file():
-                try:
-                    logo_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(logo_path), 128, 128, True)
-                except Exception:
-                    pass
-        else:
-            theme = Gtk.IconTheme.get_default()
-            if theme.has_icon(APP_ID):
-                try:
-                    logo_pixbuf = theme.load_icon(APP_ID, 128, 0)
-                except Exception:
-                    pass
-
-        if logo_pixbuf is not None:
-            image = Gtk.Image.new_from_pixbuf(logo_pixbuf)
-            content.pack_start(image, False, False, 0)
-
-        title_label = Gtk.Label()
-        title_label.set_markup(f"<b><span size='x-large'>{tr('APP_NAME')}</span></b>")
-        content.pack_start(title_label, False, False, 0)
-
-        version_label = Gtk.Label(label=__version__)
-        version_label.get_style_context().add_class("dim-label")
-        content.pack_start(version_label, False, False, 0)
-
-        comments_label = Gtk.Label(label=tr("ABOUT_COMMENTS"))
-        comments_label.set_line_wrap(True)
-        comments_label.set_max_width_chars(50)
-        comments_label.set_justify(Gtk.Justification.CENTER)
-        content.pack_start(comments_label, False, False, 0)
-
-        link = Gtk.LinkButton.new_with_label("https://github.com/Kyuyrii", "https://github.com/Kyuyrii")
-        content.pack_start(link, False, False, 0)
-
-        authors_label = Gtk.Label(label="Kyuyrii")
-        authors_label.get_style_context().add_class("dim-label")
-        content.pack_start(authors_label, False, False, 0)
-
-        self.show_all()
-        self.present()
-
+def show_about_dialog(app: "App", parent: Gtk.Window) -> None:
+    """Shows the native GTK About dialog."""
+    dialog = Gtk.AboutDialog(transient_for=parent, modal=True)
+    dialog.set_program_name(tr("APP_NAME"))
+    dialog.set_version(__version__)
+    dialog.set_comments(tr("ABOUT_COMMENTS"))
+    dialog.set_website("https://github.com/Kyuyrii/little-wine-launcher")
+    dialog.set_website_label("Little Wine Launcher on GitHub")
+    dialog.set_authors([__creator__])
+    dialog.set_logo_icon_name(APP_ID)
+    dialog.set_license_type(Gtk.License.GPL_3_0)
+    dialog.set_wrap_license(True)
+    dialog.present()
 
 # ---------- Run in prefix dialog ----------
 class RunInPrefixDialog(Gtk.Window):
@@ -1210,7 +1189,7 @@ class RunInPrefixDialog(Gtk.Window):
         exec_path = self._selected_path()
         if not exec_path:
             return
-        ok, err = launch_with_wine(exec_path, self.data)
+        ok, err = launch_with_wine(exec_path, self.data, notify=self.app.notify)
         if not ok:
             self.app.notify(tr("ERROR_TITLE"), err or tr("SAVE_FAILED"))
 
@@ -1502,7 +1481,7 @@ class MainWindow(Gtk.Window):
         if not Path(exec_path).is_file():
             self.app.notify(tr("ERROR_TITLE"), tr("EXEC_PATH_NOT_FOUND", path=exec_path))
             return
-        ok, err = launch_with_wine(exec_path, data)
+        ok, err = launch_with_wine(exec_path, data, notify=self.app.notify)
         if not ok:
             self.app.notify(tr("ERROR_TITLE"), err or tr("SAVE_FAILED"))
 
@@ -1569,10 +1548,9 @@ class MainWindow(Gtk.Window):
         w = SettingsDialog(self.app, self)
         w.present()
 
-    def _about(self) -> None:
+    def _about(self, *_args) -> None:
         """Opens the About dialog."""
-        w = AboutDialog(self.app, self)
-        w.present()
+        show_about_dialog(self.app, self)
 
 
 # ---------- Application ----------

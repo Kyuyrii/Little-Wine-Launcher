@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.kyuyrii.little-wine-launcher</id>
+  <url type="homepage">https://github.com/Kyuyrii/Little-Wine-Launcher</url>
+  <url type="bugtracker">https://github.com/Kyuyrii/Little-Wine-Launcher/issues</url>
+  <url type="vcs-browser">https://github.com/Kyuyrii/Little-Wine-Launcher</url>
+  <developer id="io.github.kyuyrii">
+    <name>Kyuyrii</name>
+  </developer>
+  <name>Little Wine Launcher</name>
+  <summary>A simple GTK3 launcher for Wine</summary>
+
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <display_length compare="ge">768</display_length>
+  </recommends>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Utility</category>
+    <category>Game</category>
+  </categories>
+  <description>
+    <p>
+      A simple GTK3 launcher for Wine. Designed to be as simple as possible.
+    </p>
+  </description>
+  <releases>
+    <release version="0.3" date="2026-11-11">
+      <description>
+        <ul>
+          <li>Adding a function to open the file selector within the prefix.</li>
+          <li>Adding the use of $SNAP_REAL_HOME if the home plug is connected.</li>
+          <li>Simplifying the about window.</li>
+          <li>Minor adjustments to work with Flatpak.</li>
+          <li>Adding a notification when Wine is run.</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  <launchable type="desktop-id">io.github.kyuyrii.little-wine-launcher.desktop</launchable>
+  <branding>
+    <color type="primary" scheme_preference="light">#232634</color>
+    <color type="primary" scheme_preference="dark">#232634</color>
+  </branding>
+  <screenshots>
+    <screenshot type="default">
+      <image width="542" height="635">https://raw.githubusercontent.com/Kyuyrii/Little-Wine-Launcher/e4c917bd213873487f6abe0289c1ad2ea90b6945/metainfo/little-wine-launcher_ubuntu-mate.png</image>
+      <caption>Little Wine Launcher on Ubuntu Mate</caption>
+    </screenshot>
+  </screenshots>
+
+</component>

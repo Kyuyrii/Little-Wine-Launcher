@@ -40,6 +40,7 @@ REMOVE_BUBBLE_BODY = "Are you sure you want to remove \"{name}\"? The prefix wil
 REMOVE_BUBBLE_TITLE = "Remove bubble"
 RUN_IN_PREFIX_NO_FILES = "No .exe or .msi files found in this folder."
 RUN_IN_PREFIX_TITLE = "Execute in prefix"
+RUNNING_WINE = "Running Wine"
 SAVE = "Save"
 SAVE_FAILED = "Could not save the bubble."
 SEARCH = "Search"

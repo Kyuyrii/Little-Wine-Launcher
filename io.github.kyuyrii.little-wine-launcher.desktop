@@ -2,7 +2,7 @@
 Name=Little Wine Launcher
 Exec=little-wine-launcher
 Icon=io.github.kyuyrii.little-wine-launcher
-StartupWMClass=io.github.kyuyrii.little-wine-launcher
+StartupWMClass=little-wine-launcher
 Categories=Utility;Game;
 Keywords=launcher;wine;gaming;
 Type=Application

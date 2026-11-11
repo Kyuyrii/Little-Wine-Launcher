@@ -40,6 +40,7 @@ REMOVE_BUBBLE_BODY = "¿Seguro que quieres quitar \"{name}\"? El prefijo se cons
 REMOVE_BUBBLE_TITLE = "Quitar burbuja"
 RUN_IN_PREFIX_NO_FILES = "No se encontraron archivos .exe o .msi en esta carpeta."
 RUN_IN_PREFIX_TITLE = "Ejecutar en el prefijo"
+RUNNING_WINE = "Ejecutando Wine"
 SAVE = "Guardar"
 SAVE_FAILED = "No se pudo guardar la burbuja."
 SEARCH = "Buscar"

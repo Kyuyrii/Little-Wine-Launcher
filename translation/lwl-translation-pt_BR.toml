@@ -40,6 +40,7 @@ REMOVE_BUBBLE_BODY = "Tem certeza que deseja remover \"{name}\"? O prefixo será
 REMOVE_BUBBLE_TITLE = "Remover bolha"
 RUN_IN_PREFIX_NO_FILES = "Nenhum arquivo .exe ou .msi encontrado nesta pasta."
 RUN_IN_PREFIX_TITLE = "Executar no prefixo"
+RUNNING_WINE = "Executando Wine"
 SAVE = "Salvar"
 SAVE_FAILED = "Não foi possível salvar a bolha."
 SEARCH = "Pesquisar"
