@@ -4,6 +4,7 @@
   <url type="homepage">https://github.com/Kyuyrii/Little-Wine-Launcher</url>
   <url type="bugtracker">https://github.com/Kyuyrii/Little-Wine-Launcher/issues</url>
   <url type="vcs-browser">https://github.com/Kyuyrii/Little-Wine-Launcher</url>
+  <url type="contact">https://github.com/Kyuyrii/Little-Wine-Launcher/issues</url>
   <developer id="io.github.kyuyrii">
     <name>Kyuyrii</name>
   </developer>
@@ -29,14 +30,13 @@
     </p>
   </description>
   <releases>
-    <release version="0.3" date="2026-11-11">
+    <release version="0.4" date="2026-11-11">
       <description>
         <ul>
-          <li>Adding a function to open the file selector within the prefix.</li>
-          <li>Adding the use of $SNAP_REAL_HOME if the home plug is connected.</li>
-          <li>Simplifying the about window.</li>
-          <li>Minor adjustments to work with Flatpak.</li>
-          <li>Adding a notification when Wine is run.</li>
+          <li>Fixed shortcut path retrieval; they now use lwl_home_dir as the base.</li>
+          <li>Added a button to inform users about using the file selector to define shortcut paths.</li>
+          <li>Simplified bubble removal confirmation window.</li>
+          <li>Added an option in the EXTRA menubar to open the Little Wine Launcher folder.</li>
         </ul>
       </description>
     </release>
