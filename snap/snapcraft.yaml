@@ -1,0 +1,77 @@
+name: little-wine-launcher
+base: core26
+adopt-info: little-wine-launcher
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+grade: stable
+confinement: strict
+compression: lzo
+
+apps:
+  little-wine-launcher:
+    command-chain: [define-variables]
+    command: usr/bin/little-wine-launcher
+    desktop: usr/share/applications/io.github.kyuyrii.little-wine-launcher.desktop
+    common-id: io.github.kyuyrii.little-wine-launcher
+    extensions: [gnome]
+    environment: &environment
+      HOME: $SNAP_USER_COMMON
+      PYTHONPATH: $SNAP/usr/lib/python3/dist-packages:$PYTHONPATH
+    plugs: &plugs
+      - audio-playback
+      - network
+      - network-bind
+      - screen-inhibit-control
+      - home
+      - removable-media
+      - mount-observe
+      - joystick
+      - bluez
+      - udisks2
+      - system-observe
+      - hardware-observe
+      - upower-observe
+  wine:
+    command-chain: [define-variables]
+    command: wine
+    extensions: [gnome]
+    environment: *environment
+    plugs: *plugs
+
+plugs:
+  shared-memory:
+    private: true
+  winehq-stable:
+    content: winehq-stable
+    interface: content
+    target: $SNAP/winehq-stable
+    default-provider: winehq-stable
+
+slots:
+  little-wine-launcher:
+    interface: dbus
+    bus: session
+    name: io.github.kyuyrii.little-wine-launcher
+
+layout:
+  /usr/lib/x86_64-linux-gnu/alsa-lib:
+    symlink: $SNAP/winehq-stable/usr/lib/x86_64-linux-gnu/alsa-lib
+  /usr/share/alsa:
+    symlink: $SNAP/winehq-stable/usr/share/alsa
+
+parts:
+  little-wine-launcher:
+    plugin: make
+    source: https://github.com/Kyuyrii/Little-Wine-Launcher.git
+#    source-tag: $SNAPCRAFT_PROJECT_VERSION
+    parse-info: [metainfo/io.github.kyuyrii.little-wine-launcher.metainfo.xml]
+    stage-packages: [python3-tomlkit, icoutils]
+    make-parameters:
+      - PREFIX=/usr
+
+  other-files:
+    after: [little-wine-launcher]
+    plugin: dump
+    source: $CRAFT_PROJECT_DIR/snap/sh
