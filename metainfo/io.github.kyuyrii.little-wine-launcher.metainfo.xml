@@ -30,13 +30,10 @@
     </p>
   </description>
   <releases>
-    <release version="0.4" date="2026-11-11">
+    <release version="0.6" date="2026-11-17">
       <description>
         <ul>
-          <li>Fixed shortcut path retrieval; they now use lwl_home_dir as the base.</li>
-          <li>Added a button to inform users about using the file selector to define shortcut paths.</li>
-          <li>Simplified bubble removal confirmation window.</li>
-          <li>Added an option in the EXTRA menubar to open the Little Wine Launcher folder.</li>
+          <li>The term "Bubble" has been replaced by "Item".</li>
         </ul>
       </description>
     </release>

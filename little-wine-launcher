@@ -28,7 +28,7 @@ else:
     __package_type__ = " [AppImage]" if os.environ.get("APPIMAGE") else ""
     WINE_DESKTOP_CMD = "wine"
 
-__version__ = "0.5" + __package_type__
+__version__ = "0.6" + __package_type__
 __creator__ = "<a href='https://github.com/Kyuyrii'>Kyuyrii</a>"
 
 if "LWL_HOME_DIR" in os.environ:
@@ -50,7 +50,7 @@ else:
 
 lwl_gui_dir = lwl_dir / "gui"
 lwl_config_dir = lwl_dir / "config"
-lwl_bubble_dir = lwl_dir / "bubble"
+lwl_item_dir = lwl_dir / "item"
 
 if os.environ.get("container") == "flatpak":
     lwl_dot_wine = Path.home() / ".var" / "app" / APP_ID / ".wine"
@@ -189,7 +189,7 @@ def save_settings(data: dict) -> bool:
 
 # Creates the Little Wine Launcher directory structure.
 def setup_directories() -> None:
-    for d in (lwl_gui_dir, lwl_config_dir, lwl_bubble_dir):
+    for d in (lwl_gui_dir, lwl_config_dir, lwl_item_dir):
         try:
             d.mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -219,58 +219,58 @@ def tr(key: str, **kwargs) -> str:
     return key
 
 
-# Normalizes a bubble name for filesystem use.
-def bubble_safe_name(name: str) -> str:
+# Normalizes a item name for filesystem use.
+def item_safe_name(name: str) -> str:
     return name.replace(" ", "_").lower()
 
 
-# Returns the TOML path for a given bubble name.
-def bubble_file_path(name: str) -> Path:
-    return lwl_config_dir / f"bubble-{bubble_safe_name(name)}.toml"
+# Returns the TOML path for a given item name.
+def item_file_path(name: str) -> Path:
+    return lwl_config_dir / f"item-info-{item_safe_name(name)}.toml"
 
 
-# Returns an error key if the bubble name is invalid, else None.
-def _validate_bubble_name(name: str) -> str | None:
+# Returns an error key if the item name is invalid, else None.
+def _validate_item_name(name: str) -> str | None:
     if not name:
         return "NAME_REQUIRED"
     if re.search(r'[/\\:*?"<>|\0]', name):
         return "NAME_INVALID"
     if name in (".", "..") or name.startswith("."):
         return "NAME_INVALID"
-    if len(bubble_safe_name(name)) > 200:
+    if len(item_safe_name(name)) > 200:
         return "NAME_INVALID"
     return None
 
 
-# Loads a bubble TOML file; returns None on failure.
-def load_bubble(path: Path) -> dict | None:
+# Loads a item TOML file; returns None on failure.
+def load_item(path: Path) -> dict | None:
     return _read_toml(path)
 
 
-# Saves a bubble dict to TOML.
-def save_bubble(path: Path, data: dict) -> bool:
+# Saves a item dict to TOML.
+def save_item(path: Path, data: dict) -> bool:
     return _write_toml(path, data)
 
 
-# Lists all bubbles as (path, data) tuples.
-def list_bubbles() -> list[tuple[Path, dict]]:
+# Lists all items as (path, data) tuples.
+def list_items() -> list[tuple[Path, dict]]:
     if not lwl_config_dir.is_dir():
         return []
     result: list[tuple[Path, dict]] = []
-    for path in sorted(lwl_config_dir.glob("bubble-*.toml")):
-        data = load_bubble(path)
+    for path in sorted(lwl_config_dir.glob("item-info-*.toml")):
+        data = load_item(path)
         if data is not None:
             result.append((path, data))
     return result
 
 
-# Fixes paths in all bubble TOMLs if they reference an outdated base dir.
-def fix_bubble_paths() -> None:
+# Fixes paths in all item TOMLs if they reference an outdated base dir.
+def fix_item_paths() -> None:
     current_base = str(lwl_home_dir)
     if not lwl_config_dir.exists():
         return
 
-    for toml_file in lwl_config_dir.glob("bubble-*.toml"):
+    for toml_file in lwl_config_dir.glob("item-info-*.toml"):
         data = _read_toml(toml_file)
         if data is None:
             continue
@@ -392,8 +392,8 @@ def extract_ico_png(ico_path: Path, out_png: Path) -> bool:
         shutil.rmtree(cache, ignore_errors=True)
 
 
-# Installs (or extracts) an icon for a bubble; returns the installed path.
-def install_icon_for_bubble(safe_name: str, source_path: str, exe_path: str) -> str:
+# Installs (or extracts) an icon for a item; returns the installed path.
+def install_icon_for_item(safe_name: str, source_path: str, exe_path: str) -> str:
     lwl_gui_dir.mkdir(parents=True, exist_ok=True)
     if source_path:
         src = Path(source_path)
@@ -416,8 +416,8 @@ def install_icon_for_bubble(safe_name: str, source_path: str, exe_path: str) -> 
     return "wine"
 
 
-# Removes all icon files matching a bubble's safe name.
-def remove_icon_for_bubble(safe_name: str, keep_path: str | None = None) -> None:
+# Removes all icon files matching a item's safe name.
+def remove_icon_for_item(safe_name: str, keep_path: str | None = None) -> None:
     if not lwl_gui_dir.is_dir():
         return
     for p in lwl_gui_dir.glob(f"{safe_name}.*"):
@@ -429,14 +429,14 @@ def remove_icon_for_bubble(safe_name: str, keep_path: str | None = None) -> None
             pass
 
 
-# Resolves a bubble's WINEPREFIX.
-def resolve_bubble_prefix(data: dict) -> Path:
+# Resolves a item's WINEPREFIX.
+def resolve_item_prefix(data: dict) -> Path:
     prefix = (data.get("prefix_path") or "").strip()
     return Path(prefix) if prefix else lwl_dot_wine
 
 
-# Builds the environment dict for launching a bubble.
-def build_env_for_bubble(data: dict) -> dict:
+# Builds the environment dict for launching a item.
+def build_env_for_item(data: dict) -> dict:
     env = os.environ.copy()
     prefix = (data.get("prefix_path") or "").strip()
     if prefix:
@@ -449,11 +449,11 @@ def build_env_for_bubble(data: dict) -> dict:
     return env
 
 
-# Launches a bubble's executable with wine. Returns (ok, error).
+# Launches a item's executable with wine. Returns (ok, error).
 def launch_with_wine(exec_path: str, data: dict, notify=None) -> tuple[bool, str | None]:
     if not shutil.which("wine"):
         return False, tr("TOOL_MISSING") + "wine"
-    env = build_env_for_bubble(data)
+    env = build_env_for_item(data)
     cwd = str(Path(exec_path).parent) if exec_path else None
 
     env_prefix = [
@@ -492,9 +492,9 @@ def build_exec_line(data: dict) -> str:
     return " ".join(parts)
 
 
-# Writes a .desktop file for a bubble; returns the path or None.
-def write_desktop_for_bubble(data: dict, folder: Path) -> Path | None:
-    safe_name = bubble_safe_name(data.get("name", ""))
+# Writes a .desktop file for a item; returns the path or None.
+def write_desktop_for_item(data: dict, folder: Path) -> Path | None:
+    safe_name = item_safe_name(data.get("name", ""))
     if not safe_name:
         return None
     folder = Path(folder)
@@ -524,7 +524,7 @@ def write_desktop_for_bubble(data: dict, folder: Path) -> Path | None:
         "StartupNotify=false",
         "Terminal=false",
     ]
-    desktop_file = folder / f"bubble-{safe_name}.desktop"
+    desktop_file = folder / f"item-info-{safe_name}.desktop"
     try:
         with open(desktop_file, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
@@ -535,9 +535,9 @@ def write_desktop_for_bubble(data: dict, folder: Path) -> Path | None:
         return None
 
 
-# Removes a bubble's .desktop file from a folder.
-def remove_bubble_desktop(folder: Path, safe_name: str) -> None:
-    f = Path(folder) / f"bubble-{safe_name}.desktop"
+# Removes a item's .desktop file from a folder.
+def remove_item_desktop(folder: Path, safe_name: str) -> None:
+    f = Path(folder) / f"item-info-{safe_name}.desktop"
     if f.is_file():
         try:
             f.unlink()
@@ -545,7 +545,7 @@ def remove_bubble_desktop(folder: Path, safe_name: str) -> None:
             print(f"[LWL]: failed to remove {f}: {e}")
 
 
-# Regenerates all .desktop shortcuts from saved bubbles.
+# Regenerates all .desktop shortcuts from saved items.
 def regenerate_shortcuts(app: "App", *_args) -> None:
     desktop_dir, applications_dir = get_shortcut_dirs()
     try:
@@ -554,14 +554,14 @@ def regenerate_shortcuts(app: "App", *_args) -> None:
     except Exception as e:
         app.notify(tr("ERROR_TITLE"), tr("ERROR_CREATING_SHORTCUTS_LOCATION", path=str(e)))
         return
-    for _path, data in list_bubbles():
-        safe_name = bubble_safe_name(data.get("name", ""))
+    for _path, data in list_items():
+        safe_name = item_safe_name(data.get("name", ""))
         for folder, key in ((desktop_dir, "desktop_shortcut"),
                             (applications_dir, "menu_shortcut")):
             if data.get(key, False):
-                write_desktop_for_bubble(data, folder)
+                write_desktop_for_item(data, folder)
             else:
-                remove_bubble_desktop(folder, safe_name)
+                remove_item_desktop(folder, safe_name)
     print("[LWL]: shortcuts updated.")
     app.notify(tr("UPDATE_SHORTCUTS"), tr("SHORTCUTS_UPDATED"))
 
@@ -624,16 +624,16 @@ def xdg_open(path: Path) -> None:
         print(f"[LWL]: xdg-open failed: {e}")
 
 
-class AddBubbleDialog(Gtk.Window):
-    # Dialog for creating or editing a bubble.
+class AddItemDialog(Gtk.Window):
+    # Dialog for creating or editing a item.
 
     def __init__(self, app: "App", parent: Gtk.Window, existing_path: Path | None = None):
         self.app = app
         self.existing_path = existing_path
-        self.existing_data = load_bubble(existing_path) if existing_path else None
+        self.existing_data = load_item(existing_path) if existing_path else None
         self.is_edit = self.existing_data is not None
 
-        title = tr("EDIT_BUBBLE_TITLE") if self.is_edit else tr("NEW_BUBBLE_TITLE")
+        title = tr("EDIT_ITEM_TITLE") if self.is_edit else tr("NEW_ITEM_TITLE")
         super().__init__(title=title)
         self.set_transient_for(parent)
         self.set_modal(True)
@@ -741,9 +741,9 @@ class AddBubbleDialog(Gtk.Window):
     def _autofill_prefix(self, *_args) -> None:
         name = self.name_entry.get_text().strip()
         if name:
-            self.prefix_entry.set_text(str(lwl_bubble_dir / bubble_safe_name(name)))
+            self.prefix_entry.set_text(str(lwl_item_dir / item_safe_name(name)))
 
-    # Fills form fields from the existing bubble data.
+    # Fills form fields from the existing item data.
     def _populate_from_existing(self) -> None:
         d = self.existing_data
         self.exec_entry.set_text(d.get("exec_path", ""))
@@ -798,18 +798,18 @@ class AddBubbleDialog(Gtk.Window):
     def _error(self, msg: str) -> None:
         show_message(self, Gtk.MessageType.ERROR, tr("ERROR_TITLE"), msg)
 
-    # Validates and saves the bubble.
+    # Validates and saves the item.
     def on_save(self, *_args) -> None:
         name = self.name_entry.get_text().strip()
-        err_key = _validate_bubble_name(name)
+        err_key = _validate_item_name(name)
         if err_key:
             self._error(tr(err_key))
             return
 
-        safe_name = bubble_safe_name(name)
-        target = bubble_file_path(name)
+        safe_name = item_safe_name(name)
+        target = item_file_path(name)
         if not self.is_edit and target.exists():
-            self._error(tr("BUBBLE_ALREADY_EXISTS", name=name))
+            self._error(tr("ITEM_ALREADY_EXISTS", name=name))
             return
 
         exec_path = self.exec_entry.get_text().strip()
@@ -826,8 +826,8 @@ class AddBubbleDialog(Gtk.Window):
             except Exception:
                 pass
 
-        gui_path = install_icon_for_bubble(safe_name, user_icon, exec_path)
-        remove_icon_for_bubble(safe_name, keep_path=gui_path)
+        gui_path = install_icon_for_item(safe_name, user_icon, exec_path)
+        remove_icon_for_item(safe_name, keep_path=gui_path)
 
         data = {
             "name": name,
@@ -844,10 +844,10 @@ class AddBubbleDialog(Gtk.Window):
             target = self.existing_path
 
         try:
-            if not save_bubble(target, data):
-                raise RuntimeError("save_bubble returned False")
+            if not save_item(target, data):
+                raise RuntimeError("save_item returned False")
         except Exception as e:
-            print(f"[LWL]: failed to save bubble: {e}")
+            print(f"[LWL]: failed to save item: {e}")
             self._error(tr("SAVE_FAILED"))
             return
 
@@ -937,23 +937,23 @@ class SettingsDialog(Gtk.Window):
 
 
 # Shows the native GTK removal confirmation dialog.
-def show_remove_bubble_dialog(app: "App", parent: Gtk.Window, toml_path: Path, name: str) -> None:
+def show_remove_item_dialog(app: "App", parent: Gtk.Window, toml_path: Path, name: str) -> None:
     response = show_message(
-        parent, Gtk.MessageType.QUESTION, tr("REMOVE_BUBBLE_TITLE"),
-        tr("REMOVE_BUBBLE_BODY", name=name), buttons=Gtk.ButtonsType.YES_NO,
+        parent, Gtk.MessageType.QUESTION, tr("REMOVE_ITEM_TITLE"),
+        tr("REMOVE_ITEM_BODY", name=name), buttons=Gtk.ButtonsType.YES_NO,
     )
     if response != Gtk.ResponseType.YES:
         return
 
-    safe_name = bubble_safe_name(name)
+    safe_name = item_safe_name(name)
     desktop_dir, applications_dir = get_shortcut_dirs()
-    remove_bubble_desktop(desktop_dir, safe_name)
-    remove_bubble_desktop(applications_dir, safe_name)
+    remove_item_desktop(desktop_dir, safe_name)
+    remove_item_desktop(applications_dir, safe_name)
     try:
         toml_path.unlink()
     except Exception:
         pass
-    remove_icon_for_bubble(safe_name)
+    remove_icon_for_item(safe_name)
     app.refresh_main()
 
 
@@ -973,7 +973,7 @@ def show_about_dialog(app: "App", parent: Gtk.Window, *_args) -> None:
 
 
 class RunInPrefixDialog(Gtk.Window):
-    # Dialog for executing an arbitrary .exe/.msi inside a bubble's prefix.
+    # Dialog for executing an arbitrary .exe/.msi inside a item's prefix.
 
     def __init__(self, app: "App", parent: Gtk.Window, data: dict, folder_path: Path):
         self.app = app
@@ -1123,10 +1123,10 @@ class MainWindow(Gtk.Window):
             menu.append(item)
             return item
 
-        bubble_menu = add_menu(tr("MENU_BUBBLE"))
-        self.mi_new = add_item(bubble_menu, tr("NEW_BUBBLE"), self._new_bubble)
-        self.mi_edit = add_item(bubble_menu, tr("EDIT"), self._edit_selected)
-        self.mi_remove = add_item(bubble_menu, tr("REMOVE"), self._remove_selected)
+        item_menu = add_menu(tr("MENU_ITEM"))
+        self.mi_new = add_item(item_menu, tr("NEW_ITEM"), self._new_item)
+        self.mi_edit = add_item(item_menu, tr("EDIT"), self._edit_selected)
+        self.mi_remove = add_item(item_menu, tr("REMOVE"), self._remove_selected)
 
         wine_menu = add_menu(tr("MENU_WINE"))
         self.mi_winecfg = add_item(
@@ -1167,7 +1167,7 @@ class MainWindow(Gtk.Window):
 
     def _on_row_activated(self, treeview: Gtk.TreeView, path, column) -> None:
         model = treeview.get_model()
-        data = load_bubble(Path(model[model.get_iter(path)][1]))
+        data = load_item(Path(model[model.get_iter(path)][1]))
         if data:
             self._execute(data=data)
 
@@ -1192,7 +1192,7 @@ class MainWindow(Gtk.Window):
 
     def refresh(self) -> None:
         self.store.clear()
-        for path, data in list_bubbles():
+        for path, data in list_items():
             self.store.append([data.get("gui_path", ""), str(path), data.get("name", path.stem)])
         self._update_menu_sensitivity()
 
@@ -1202,7 +1202,7 @@ class MainWindow(Gtk.Window):
 
     def _selected_data(self) -> tuple[Path | None, dict | None]:
         p = self._selected_toml_path()
-        return (p, load_bubble(p)) if p is not None else (None, None)
+        return (p, load_item(p)) if p is not None else (None, None)
 
     def _update_menu_sensitivity(self, *_args) -> None:
         has_selection = self._selected_toml_path() is not None
@@ -1230,20 +1230,20 @@ class MainWindow(Gtk.Window):
         if data is not None:
             self._run_wine_tool(data, tool)
 
-    def _new_bubble(self, *_args) -> None:
-        AddBubbleDialog(self.app, self).present()
+    def _new_item(self, *_args) -> None:
+        AddItemDialog(self.app, self).present()
 
     def _edit_selected(self, *_args) -> None:
         p = self._selected_toml_path()
         if p is not None:
-            AddBubbleDialog(self.app, self, existing_path=p).present()
+            AddItemDialog(self.app, self, existing_path=p).present()
 
     def _remove_selected(self, *_args) -> None:
         p = self._selected_toml_path()
         if p is not None:
-            data = load_bubble(p)
+            data = load_item(p)
             if data is not None:
-                show_remove_bubble_dialog(self.app, self, p, data.get("name", p.stem))
+                show_remove_item_dialog(self.app, self, p, data.get("name", p.stem))
 
     def _execute(self, *_args, data: dict) -> None:
         exec_path = (data.get("exec_path") or "").strip()
@@ -1267,7 +1267,7 @@ class MainWindow(Gtk.Window):
         )
 
     def _open_prefix(self, *_args, data: dict) -> None:
-        self._xdg_open(resolve_bubble_prefix(data))
+        self._xdg_open(resolve_item_prefix(data))
 
     def _open_lwl_dir(self, *_args) -> None:
         self._xdg_open(lwl_dir)
@@ -1281,7 +1281,7 @@ class MainWindow(Gtk.Window):
         xdg_open(path)
 
     def _run_wine_tool(self, data: dict, tool: str) -> None:
-        prefix_p = resolve_bubble_prefix(data)
+        prefix_p = resolve_item_prefix(data)
         if not shutil.which("wine"):
             self.app.notify(tr("ERROR_TITLE"), tr("TOOL_MISSING") + "wine")
             return
@@ -1330,7 +1330,7 @@ class App(Gtk.Application):
     def _on_main_destroyed(self, *_args) -> None:
         self.quit()
 
-    # Refreshes the main window's bubble list.
+    # Refreshes the main window's item list.
     def refresh_main(self) -> None:
         if self.main_win:
             self.main_win.refresh()
@@ -1339,7 +1339,7 @@ class App(Gtk.Application):
 # Entry point.
 def main() -> int:
     setup_directories()
-    fix_bubble_paths()
+    fix_item_paths()
     return App().run(sys.argv)
 
 

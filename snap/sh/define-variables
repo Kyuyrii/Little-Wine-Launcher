@@ -8,4 +8,17 @@ export GST_PLUGIN_SYSTEM_PATH="$GST_PLUGIN_SYSTEM_PATH:$SNAP/winehq-stable/usr/l
 
 export XDG_DATA_DIRS="$XDG_DATA_DIRS:$SNAP/winehq-stable/usr/share"
 
+for dir in \
+    "${SNAP_REAL_HOME:-}/App/Little-Wine-Launcher/config" \
+    "${SNAP_USER_COMMON:-}/App/Little-Wine-Launcher/config"
+do
+    [[ -d "$dir" ]] || continue
+    for src in "$dir"/bubble-*; do
+        [[ -e "$src" ]] || continue
+        dst="$dir/item-info-${src##*/bubble-}"
+        [[ -e "$dst" ]] && continue
+        mv -- "$src" "$dst"
+    done
+done
+
 exec "$@"
