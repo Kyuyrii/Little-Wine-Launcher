@@ -30,10 +30,10 @@
     </p>
   </description>
   <releases>
-    <release version="0.6" date="2026-11-17">
+    <release version="0.7" date="2026-11-19">
       <description>
         <ul>
-          <li>The term "Bubble" has been replaced by "Item".</li>
+          <li>The names of the created .desktop files have been changed to begin with "little-wine-launcher"..</li>
         </ul>
       </description>
     </release>

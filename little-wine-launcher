@@ -28,7 +28,7 @@ else:
     __package_type__ = " [AppImage]" if os.environ.get("APPIMAGE") else ""
     WINE_DESKTOP_CMD = "wine"
 
-__version__ = "0.6" + __package_type__
+__version__ = "0.7" + __package_type__
 __creator__ = "<a href='https://github.com/Kyuyrii'>Kyuyrii</a>"
 
 if "LWL_HOME_DIR" in os.environ:
@@ -524,7 +524,7 @@ def write_desktop_for_item(data: dict, folder: Path) -> Path | None:
         "StartupNotify=false",
         "Terminal=false",
     ]
-    desktop_file = folder / f"item-info-{safe_name}.desktop"
+    desktop_file = folder / f"little-wine-launcher-{safe_name}.desktop"
     try:
         with open(desktop_file, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
@@ -537,7 +537,7 @@ def write_desktop_for_item(data: dict, folder: Path) -> Path | None:
 
 # Removes a item's .desktop file from a folder.
 def remove_item_desktop(folder: Path, safe_name: str) -> None:
-    f = Path(folder) / f"item-info-{safe_name}.desktop"
+    f = Path(folder) / f"little-wine-launcher-{safe_name}.desktop"
     if f.is_file():
         try:
             f.unlink()
