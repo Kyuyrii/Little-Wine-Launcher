@@ -33,12 +33,6 @@ apps:
       - system-observe
       - hardware-observe
       - upower-observe
-  wine:
-    command-chain: [define-variables]
-    command: wine
-    extensions: [gnome]
-    environment: *environment
-    plugs: *plugs
 
 plugs:
   shared-memory:

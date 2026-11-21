@@ -16,20 +16,19 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio, GdkPixbuf
 
-APP_ID = "io.github.kyuyrii.little-wine-launcher"
-
 if os.environ.get("SNAP"):
     __package_type__ = " [Snap]"
-    WINE_DESKTOP_CMD = "snap run little-wine-launcher.wine"
 elif os.environ.get("container") == "flatpak":
     __package_type__ = " [Flatpak]"
-    WINE_DESKTOP_CMD = f"flatpak run --command=wine {APP_ID}"
+elif os.environ.get("APPIMAGE"):
+    __package_type__ = " [AppImage]"
 else:
-    __package_type__ = " [AppImage]" if os.environ.get("APPIMAGE") else ""
-    WINE_DESKTOP_CMD = "wine"
+    __package_type__ = ""
 
-__version__ = "0.7" + __package_type__
+__version__ = "0.8" + __package_type__
 __creator__ = "<a href='https://github.com/Kyuyrii'>Kyuyrii</a>"
+
+APP_ID = "io.github.kyuyrii.little-wine-launcher"
 
 if "LWL_HOME_DIR" in os.environ:
     lwl_home_dir = Path(os.environ["LWL_HOME_DIR"])
@@ -68,11 +67,11 @@ LWL_LOCALES = [
     "tr_TR.UTF-8", "uk_UA.UTF-8", "zh_CN.UTF-8", "zh_TW.UTF-8",
 ]
 
-LWL_CATEGORIES = [
+LWL_CATEGORIES = sorted([
     "AudioVideo", "Audio", "Video", "Development", "Education",
     "Game", "Graphics", "Network", "Office", "Science",
     "Settings", "System", "Utility",
-]
+])
 
 
 # Reads a TOML file; returns None on failure.
@@ -81,7 +80,7 @@ def _read_toml(path: Path) -> dict | None:
         with open(path, "r", encoding="utf-8") as f:
             return dict(tomlkit.load(f))
     except Exception as e:
-        print(f"[LWL]: failed to read {path}: {e}")
+        print(f"[Little Wine Launcher]: failed to read {path}: {e}")
         return None
 
 
@@ -93,7 +92,7 @@ def _write_toml(path: Path, data: dict) -> bool:
             tomlkit.dump(data, f)
         return True
     except Exception as e:
-        print(f"[LWL]: failed to write {path}: {e}")
+        print(f"[Little Wine Launcher]: failed to write {path}: {e}")
         return False
 
 
@@ -128,9 +127,9 @@ def load_translations() -> tuple[dict, list[tuple[str, str]]]:
     for translation_folder in translation_dirs:
         if not translation_folder.exists():
             continue
-        for toml_file in translation_folder.glob("lwl-translation-*.toml"):
+        for toml_file in translation_folder.glob("little-wine-launcher-translation-*.toml"):
             try:
-                lang_code = toml_file.stem.replace("lwl-translation-", "")
+                lang_code = toml_file.stem.replace("little-wine-launcher-translation-", "")
                 if lang_code in seen_codes:
                     continue
                 lang_data = _read_toml(toml_file)
@@ -140,9 +139,9 @@ def load_translations() -> tuple[dict, list[tuple[str, str]]]:
                 lang_name = lang_data.get("language_name", lang_code)
                 toml_languages.append((lang_name, lang_code))
                 seen_codes.add(lang_code)
-                print(f"[LWL]: Loaded translation: {lang_name} ({lang_code})")
+                print(f"[Little Wine Launcher]: Loaded translation: {lang_name} ({lang_code})")
             except Exception as e:
-                print(f"[LWL]: Error loading translation {toml_file}: {e}")
+                print(f"[Little Wine Launcher]: Error loading translation {toml_file}: {e}")
 
     return toml_translations, toml_languages
 
@@ -193,7 +192,7 @@ def setup_directories() -> None:
         try:
             d.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            print(f"[LWL]: failed to create {d}: {e}")
+            print(f"[Little Wine Launcher]: failed to create {d}: {e}")
 
 
 _settings_initial = load_settings()
@@ -386,7 +385,7 @@ def extract_ico_png(ico_path: Path, out_png: Path) -> bool:
         shutil.copy(best or pngs[0], out_png)
         return True
     except Exception as e:
-        print(f"[LWL]: extract_ico_png error: {e}")
+        print(f"[Little Wine Launcher]: extract_ico_png error: {e}")
         return False
     finally:
         shutil.rmtree(cache, ignore_errors=True)
@@ -462,7 +461,7 @@ def launch_with_wine(exec_path: str, data: dict, notify=None) -> tuple[bool, str
         if k in env and env[k] != os.environ.get(k)
     ]
     logged_cmd = " ".join(env_prefix + ["wine", f'"{exec_path}"'])
-    print(f"[LWL]: running: {logged_cmd}")
+    print(f"[Little Wine Launcher]: running: {logged_cmd}")
 
     try:
         subprocess.Popen(
@@ -475,9 +474,34 @@ def launch_with_wine(exec_path: str, data: dict, notify=None) -> tuple[bool, str
     except Exception as e:
         return False, str(e)
 
+def run_exe_direct(exec_path: str) -> bool:
+    if not shutil.which("wine"):
+        print("[Little Wine Launcher]: wine not found", file=sys.stderr)
+        return False
+    try:
+        proc = subprocess.Popen(
+            ["wine", exec_path],
+            cwd=str(Path(exec_path).parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        print(f"[Little Wine Launcher]: wine launched: pid={proc.pid} exec={exec_path}", file=sys.stderr)
+        return True
+    except Exception as e:
+        print(f"[Little Wine Launcher]: failed: {e}", file=sys.stderr)
+        return False
 
 # Builds the Exec= line for a .desktop file.
 def build_exec_line(data: dict) -> str:
+    if os.environ.get("SNAP"):
+        current_lwl = "snap run little-wine-launcher"
+    elif os.environ.get("container") == "flatpak":
+        current_lwl = f"flatpak run {APP_ID}"
+    elif os.environ.get("APPIMAGE"):
+        current_lwl = f'"{os.environ["APPIMAGE"]}"'
+    else:
+        current_lwl = f'"{os.path.abspath(sys.argv[0])}"'
+
     env_parts = []
     prefix = (data.get("prefix_path") or "").strip()
     if prefix:
@@ -488,7 +512,7 @@ def build_exec_line(data: dict) -> str:
     exec_path = (data.get("exec_path") or "").strip()
 
     parts = (["env"] + env_parts) if env_parts else []
-    parts += [WINE_DESKTOP_CMD, f'"{exec_path}"']
+    parts += [current_lwl, f'"{exec_path}"']
     return " ".join(parts)
 
 
@@ -501,7 +525,7 @@ def write_desktop_for_item(data: dict, folder: Path) -> Path | None:
     try:
         folder.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        print(f"[LWL]: failed to create {folder}: {e}")
+        print(f"[Little Wine Launcher]: failed to create {folder}: {e}")
         return None
 
     name = data.get("name", "")
@@ -524,46 +548,58 @@ def write_desktop_for_item(data: dict, folder: Path) -> Path | None:
         "StartupNotify=false",
         "Terminal=false",
     ]
-    desktop_file = folder / f"little-wine-launcher-{safe_name}.desktop"
+    desktop_file = folder / _desktop_filename(safe_name)
     try:
         with open(desktop_file, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
         os.chmod(desktop_file, 0o755)
         return desktop_file
     except Exception as e:
-        print(f"[LWL]: failed to write {desktop_file}: {e}")
+        print(f"[Little Wine Launcher]: failed to write {desktop_file}: {e}")
         return None
+
+
+# Returns the canonical .desktop filename for an item in a folder.
+def _desktop_filename(safe_name: str) -> str:
+    return f"{APP_ID}-{safe_name}.desktop"
+
+
+# Returns True if the .desktop belongs to the LWL.
+def _is_lwl_desktop(path: Path) -> bool:
+    return path.is_file() and path.suffix == ".desktop" and path.stem.startswith(f"{APP_ID}-")
+
+
+# Lists safe_names of all LWL .desktop files in a folder.
+def list_installed_shortcuts(folder: Path) -> set[str]:
+    if not folder.is_dir():
+        return set()
+    return {
+        p.stem.replace(f"{APP_ID}-", "", 1)
+        for p in folder.glob(f"{APP_ID}-*.desktop")
+        if _is_lwl_desktop(p)
+    }
+
+
+# Removes all LWL .desktop files from a folder.
+def remove_all_lwl_desktops(folder: Path) -> None:
+    if not folder.is_dir():
+        return
+    for p in folder.glob(f"{APP_ID}-*.desktop"):
+        if _is_lwl_desktop(p):
+            try:
+                p.unlink()
+            except Exception as e:
+                print(f"[Little Wine Launcher]: failed to remove {p}: {e}")
 
 
 # Removes a item's .desktop file from a folder.
 def remove_item_desktop(folder: Path, safe_name: str) -> None:
-    f = Path(folder) / f"little-wine-launcher-{safe_name}.desktop"
+    f = Path(folder) / _desktop_filename(safe_name)
     if f.is_file():
         try:
             f.unlink()
         except Exception as e:
-            print(f"[LWL]: failed to remove {f}: {e}")
-
-
-# Regenerates all .desktop shortcuts from saved items.
-def regenerate_shortcuts(app: "App", *_args) -> None:
-    desktop_dir, applications_dir = get_shortcut_dirs()
-    try:
-        desktop_dir.mkdir(parents=True, exist_ok=True)
-        applications_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        app.notify(tr("ERROR_TITLE"), tr("ERROR_CREATING_SHORTCUTS_LOCATION", path=str(e)))
-        return
-    for _path, data in list_items():
-        safe_name = item_safe_name(data.get("name", ""))
-        for folder, key in ((desktop_dir, "desktop_shortcut"),
-                            (applications_dir, "menu_shortcut")):
-            if data.get(key, False):
-                write_desktop_for_item(data, folder)
-            else:
-                remove_item_desktop(folder, safe_name)
-    print("[LWL]: shortcuts updated.")
-    app.notify(tr("UPDATE_SHORTCUTS"), tr("SHORTCUTS_UPDATED"))
+            print(f"[Little Wine Launcher]: failed to remove {f}: {e}")
 
 
 # Shows a GTK message dialog; returns the response.
@@ -621,7 +657,7 @@ def xdg_open(path: Path) -> None:
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
     except Exception as e:
-        print(f"[LWL]: xdg-open failed: {e}")
+        print(f"[Little Wine Launcher]: xdg-open failed: {e}")
 
 
 class AddItemDialog(Gtk.Window):
@@ -637,7 +673,7 @@ class AddItemDialog(Gtk.Window):
         super().__init__(title=title)
         self.set_transient_for(parent)
         self.set_modal(True)
-        self.set_default_size(520, 580)
+        self.set_default_size(520, 480)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(content)
@@ -698,18 +734,6 @@ class AddItemDialog(Gtk.Window):
         self.category_combo.set_active(0)
         box.pack_start(self.category_combo, False, False, 0)
 
-        box.pack_start(Gtk.Label(label=tr("SHORTCUTS"), xalign=0), False, False, 0)
-        self.desktop_switch = Gtk.Switch()
-        box.pack_start(
-            self._label_with_widget(tr("SHORTCUT_ON_DESKTOP"), self.desktop_switch),
-            False, False, 0,
-        )
-        self.menu_switch = Gtk.Switch()
-        box.pack_start(
-            self._label_with_widget(tr("SHORTCUT_ON_MENU"), self.menu_switch),
-            False, False, 0,
-        )
-
         if self.is_edit:
             self._populate_from_existing()
         else:
@@ -729,14 +753,6 @@ class AddItemDialog(Gtk.Window):
         box.pack_start(row, False, False, 0)
         return entry
 
-    # Returns a horizontal row with a label and a widget.
-    def _label_with_widget(self, text: str, widget: Gtk.Widget) -> Gtk.Box:
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        row.pack_start(Gtk.Label(label=text, xalign=0), True, True, 0)
-        widget.set_hexpand(False)
-        row.pack_end(widget, False, False, 0)
-        return row
-
     # Autofills the prefix entry based on the current name.
     def _autofill_prefix(self, *_args) -> None:
         name = self.name_entry.get_text().strip()
@@ -749,8 +765,6 @@ class AddItemDialog(Gtk.Window):
         self.exec_entry.set_text(d.get("exec_path", ""))
         self.prefix_entry.set_text(d.get("prefix_path", ""))
         self.icon_entry.set_text(d.get("gui_path", ""))
-        self.desktop_switch.set_active(bool(d.get("desktop_shortcut", False)))
-        self.menu_switch.set_active(bool(d.get("menu_shortcut", False)))
         loc = d.get("language", "")
         self.locale_combo.set_active(LWL_LOCALES.index(loc) + 1 if loc in LWL_LOCALES else 0)
         cat = d.get("category", "")
@@ -836,8 +850,6 @@ class AddItemDialog(Gtk.Window):
             "gui_path": gui_path,
             "language": language,
             "category": category,
-            "desktop_shortcut": self.desktop_switch.get_active(),
-            "menu_shortcut": self.menu_switch.get_active(),
         }
 
         if self.is_edit:
@@ -847,7 +859,7 @@ class AddItemDialog(Gtk.Window):
             if not save_item(target, data):
                 raise RuntimeError("save_item returned False")
         except Exception as e:
-            print(f"[LWL]: failed to save item: {e}")
+            print(f"[Little Wine Launcher]: failed to save item: {e}")
             self._error(tr("SAVE_FAILED"))
             return
 
@@ -1051,6 +1063,165 @@ class RunInPrefixDialog(Gtk.Window):
             self.app.notify(tr("ERROR_TITLE"), err or tr("SAVE_FAILED"))
 
 
+class ShortcutManagerDialog(Gtk.Window):
+    # Centralized dialog for managing .desktop shortcuts of all items.
+
+    def __init__(self, app: "App", parent: Gtk.Window):
+        self.app = app
+        super().__init__(title=tr("SHORTCUTS_MANAGER_TITLE"))
+        self.set_transient_for(parent)
+        self.set_modal(True)
+        self.set_default_size(400, 400)
+
+        self.items = list_items()
+        self.desktop_dir, self.applications_dir = get_shortcut_dirs()
+
+        self.checkbox_widgets: dict[str, dict[str, Gtk.CheckButton]] = {
+            "desktop": {}, "menu": {},
+        }
+        self.scroll_layouts: dict[str, Gtk.Box | None] = {
+            "desktop": None, "menu": None,
+        }
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        self.add(content)
+
+        self.search_entry = Gtk.SearchEntry()
+        self.search_entry.set_placeholder_text(tr("SEARCH"))
+        self.search_entry.connect("search-changed", self._on_search_changed)
+        content.pack_start(self.search_entry, False, False, 0)
+
+        self.notebook = Gtk.Notebook()
+        self.notebook.set_vexpand(True)
+
+        self.desktop_tab = self._build_tab("desktop")
+        self.menu_tab = self._build_tab("menu")
+        self.notebook.append_page(self.desktop_tab, Gtk.Label(label=tr("SHORTCUTS_OF_DESKTOP")))
+        self.notebook.append_page(self.menu_tab, Gtk.Label(label=tr("SHORTCUTS_OF_MENU")))
+        content.pack_start(self.notebook, True, True, 0)
+
+        select_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.select_all_btn = Gtk.Button(label=tr("SELECT_ALL"))
+        self.select_all_btn.connect("clicked", self._select_all)
+        self.deselect_all_btn = Gtk.Button(label=tr("DESELECT_ALL"))
+        self.deselect_all_btn.connect("clicked", self._deselect_all)
+        select_row.pack_start(self.select_all_btn, True, True, 0)
+        select_row.pack_start(self.deselect_all_btn, True, True, 0)
+        content.pack_start(select_row, False, False, 0)
+
+        action_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        update_btn = Gtk.Button(label=tr("UPDATE_SHORTCUTS"))
+        update_btn.get_style_context().add_class("suggested-action")
+        update_btn.connect("clicked", self._update_and_apply)
+        action_bar.pack_end(update_btn, False, False, 0)
+        content.pack_start(action_bar, False, False, 0)
+
+        self._build_checkboxes("desktop")
+        self._build_checkboxes("menu")
+        self._apply_search("desktop", "")
+        self._apply_search("menu", "")
+
+        self.show_all()
+        self.present()
+
+    def _build_tab(self, view_name: str) -> Gtk.Widget:
+        tab = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_shadow_type(Gtk.ShadowType.NONE)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.set_margin_top(6)
+        box.set_margin_bottom(6)
+        box.set_margin_start(6)
+        box.set_margin_end(6)
+        scroll.add(box)
+        tab.pack_start(scroll, True, True, 0)
+        self.scroll_layouts[view_name] = box
+        return tab
+
+    def _build_checkboxes(self, view_name: str) -> None:
+        layout = self.scroll_layouts[view_name]
+        if layout is None:
+            return
+        for child in layout.get_children():
+            layout.remove(child)
+        self.checkbox_widgets[view_name].clear()
+
+        folder = self.desktop_dir if view_name == "desktop" else self.applications_dir
+        installed = list_installed_shortcuts(folder)
+
+        for _path, data in self.items:
+            name = data.get("name", "")
+            if not name:
+                continue
+            safe_name = item_safe_name(name)
+            cb = Gtk.CheckButton(label=name)
+            cb.set_active(safe_name in installed)
+            self.checkbox_widgets[view_name][safe_name] = cb
+
+        ordered = sorted(
+            self.checkbox_widgets[view_name].items(),
+            key=lambda kv: kv[1].get_label().lower(),
+        )
+        for _safe, cb in ordered:
+            layout.pack_start(cb, False, False, 0)
+        layout.show_all()
+
+    def _apply_search(self, view_name: str, text: str) -> None:
+        text_lower = text.strip().lower()
+        for cb in self.checkbox_widgets[view_name].values():
+            cb.set_visible(not text_lower or text_lower in cb.get_label().lower())
+
+    def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
+        text = entry.get_text()
+        self._apply_search("desktop", text)
+        self._apply_search("menu", text)
+
+    def _current_view(self) -> str:
+        return "desktop" if self.notebook.get_current_page() == 0 else "menu"
+
+    def _select_all(self, *_args) -> None:
+        for cb in self.checkbox_widgets[self._current_view()].values():
+            cb.set_active(True)
+
+    def _deselect_all(self, *_args) -> None:
+        for cb in self.checkbox_widgets[self._current_view()].values():
+            cb.set_active(False)
+
+    def _update_and_apply(self, *_args) -> None:
+        try:
+            self.desktop_dir.mkdir(parents=True, exist_ok=True)
+            self.applications_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            show_message(
+                self, Gtk.MessageType.ERROR, tr("ERROR_TITLE"),
+                tr("ERROR_CREATING_SHORTCUTS_LOCATION", path=str(e)),
+            )
+            return
+
+        by_safe = {item_safe_name(d.get("name", "")): d for _p, d in self.items}
+
+        for view_name, folder in (
+            ("desktop", self.desktop_dir),
+            ("menu", self.applications_dir),
+        ):
+            for safe_name, cb in self.checkbox_widgets[view_name].items():
+                data = by_safe.get(safe_name)
+                if data is None:
+                    continue
+                if cb.get_active():
+                    write_desktop_for_item(data, folder)
+                else:
+                    remove_item_desktop(folder, safe_name)
+
+        print("[Little Wine Launcher]: shortcuts updated.")
+        self.destroy()
+
+
 class MainWindow(Gtk.Window):
     # Main application window.
 
@@ -1144,7 +1315,7 @@ class MainWindow(Gtk.Window):
 
         extra_menu = add_menu(tr("MENU_EXTRA"))
         add_item(extra_menu, tr("OPEN_LWL_DIR"), partial(self._open_lwl_dir))
-        add_item(extra_menu, tr("UPDATE_SHORTCUTS"), partial(regenerate_shortcuts, self.app))
+        add_item(extra_menu, tr("SHORTCUTS_MANAGER_TITLE"), partial(self._open_shortcut_manager))
         add_item(extra_menu, tr("SETTINGS"), partial(self._open_settings))
         extra_menu.append(Gtk.SeparatorMenuItem())
         add_item(extra_menu, tr("ABOUT"), partial(show_about_dialog, self.app, self))
@@ -1272,6 +1443,9 @@ class MainWindow(Gtk.Window):
     def _open_lwl_dir(self, *_args) -> None:
         self._xdg_open(lwl_dir)
 
+    def _open_shortcut_manager(self, *_args) -> None:
+        ShortcutManagerDialog(self.app, self).present()
+
     def _xdg_open(self, path: Path) -> None:
         try:
             path.mkdir(parents=True, exist_ok=True)
@@ -1286,7 +1460,7 @@ class MainWindow(Gtk.Window):
             self.app.notify(tr("ERROR_TITLE"), tr("TOOL_MISSING") + "wine")
             return
         env = dict(os.environ, WINEPREFIX=str(prefix_p))
-        print(f'[LWL]: running: WINEPREFIX="{prefix_p}" wine {tool}')
+        print(f'[Little Wine Launcher]: running: WINEPREFIX="{prefix_p}" wine {tool}')
         try:
             subprocess.Popen(
                 ["wine", tool], env=env,
@@ -1314,7 +1488,7 @@ class App(Gtk.Application):
                 n.set_body(body)
             self.send_notification(None, n)
         except Exception as e:
-            print(f"[LWL]: notification failed: {e}")
+            print(f"[Little Wine Launcher]: notification failed: {e}")
             try:
                 cmd = ["notify-send", title] + ([body] if body else [])
                 subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -1340,6 +1514,12 @@ class App(Gtk.Application):
 def main() -> int:
     setup_directories()
     fix_item_paths()
+
+    if len(sys.argv) > 1:
+        candidate = Path(sys.argv[1])
+        if candidate.suffix.lower() in (".exe", ".msi") and candidate.is_file():
+            return 0 if run_exe_direct(str(candidate)) else 1
+
     return App().run(sys.argv)
 
 

@@ -30,10 +30,11 @@
     </p>
   </description>
   <releases>
-    <release version="0.7" date="2026-11-19">
+    <release version="0.8" date="2026-11-21">
       <description>
         <ul>
-          <li>The names of the created .desktop files have been changed to begin with "little-wine-launcher"..</li>
+          <li>The beginning of .desktop filenames has been changed to use the APP_ID.</li>
+          <li>If a path is added after the Little Wine Launcher command, the wine command will be invoked.</li>
         </ul>
       </description>
     </release>
